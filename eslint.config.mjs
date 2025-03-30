@@ -6,8 +6,13 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import pluginReact from "eslint-plugin-react";
 
+// Ajout de la configuration Next.js
+import nextjs from "eslint-config-next";
+
 export default defineConfig([
-  { files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"] },
+  {
+    files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
+  },
   {
     files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
     languageOptions: { globals: globals.browser },
@@ -19,6 +24,8 @@ export default defineConfig([
   },
   tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
+  // Ajouter les configurations de Next.js
+  nextjs,
   {
     ignores: ["__test__/*", "cypress/*"],
   },
