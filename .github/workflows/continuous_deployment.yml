@@ -1,0 +1,35 @@
+name: Workflow for CD deployment on Vercel with GitHub Actions
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: # Trigger the workflow manually
+
+env:
+  # These secret keys must be created in the GitHub repository
+  # Go to your GitHub repository → Settings → Secrets and Variables → Actions → New Repository Secret
+
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }} # Get from Vercel dashboard → Settings → Copy Team ID
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # Get from Vercel dashboard → Select project → Settings → Copy ID
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+jobs:
+  Deploy:
+    name: Deploy after a release or a manual trigger to Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4 # Mise à jour de la version
+
+      - name: Install Vercel CLI
+        run: yarn global add vercel@latest # Utilisation de Yarn au lieu de npm
+
+      - name: Pull Vercel environment information
+        run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
+
+      - name: Build Project Artifact
+        run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
+
+      - name: Deploy Project Artifact to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
