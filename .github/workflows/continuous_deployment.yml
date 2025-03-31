@@ -18,16 +18,21 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4 # Mise à jour de la version
+        uses: actions/checkout@v4
 
       - name: Enable Corepack (for Yarn 4)
         run: corepack enable
 
-      - name: Set Yarn version
-        run: corepack prepare yarn@4.7.0 --activate
+      - name: Install correct Yarn version
+        run: |
+          corepack prepare yarn@4.7.0 --activate
+          yarn --version
+
+      - name: Check Node.js version
+        run: node --version
 
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --immutable
 
       - name: Install Vercel CLI
         run: yarn dlx vercel@latest
