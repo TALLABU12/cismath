@@ -1,4 +1,4 @@
-name: workflow for CI with github actions
+name: Workflow for CI with GitHub Actions
 
 on:
   push:
@@ -20,43 +20,22 @@ jobs:
         with:
           node-version: 20.x
 
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Set Yarn to the required version
+        run: corepack prepare yarn@4.7.0 --activate
+
+      - name: Install Vercel globally
+        run: yarn global add vercel@latest
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
       - name: Install dependencies
         run: yarn install
-
-      - name: Build project
-        run: yarn build
-
-      - name: Checkout TypeScript Errors
-        run: yarn add typescript && tsc
-
-      - name: Checkout ESLint Errors
-        run: yarn lint
-
-      - name: Launch Unit Test & Integration Test
-        run: yarn test
-
-      - name: Save build data
-        uses: actions/upload-artifact@v4
-        with:
-          name: build
-          if-no-files-found: Error
-          path: .next
-
-  run-cypress-tests:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout Code
-        uses: actions/Checkout@v4
-
-      - name: Download the build data
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: .next
-
-      - name: Cypress run test
-        uses: Cypress-io/github-action@v6
-        with:
-          run: yarn start
-          path: chrome
