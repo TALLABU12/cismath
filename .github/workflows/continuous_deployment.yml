@@ -1,50 +1,49 @@
-name: Workflow for CD deployment on Vercel with GitHub Actions
+name: Vercel CD Deployment
 
 on:
   release:
     types: [published]
-  workflow_dispatch: # Permet de lancer le workflow manuellement
+  workflow_dispatch:
 
 env:
-  # Ces secrets doivent être définis dans le dépôt GitHub (Settings → Secrets and Variables → Actions)
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  NODE_VERSION: 20.x
+  YARN_VERSION: 4.7.0
 
 jobs:
-  Deploy:
-    name: Deploy after a release or a manual trigger to Vercel
+  deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30 # Augmentez si nécessaire
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Enable Corepack (for Yarn 4)
-        run: corepack enable
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "yarn" # Cache automatique pour Yarn
 
-      - name: Install correct Yarn version
+      - name: Setup Yarn
         run: |
-          corepack prepare yarn@4.7.0 --activate
-          yarn --version
+          corepack enable
+          corepack prepare yarn@${{ env.YARN_VERSION }} --activate
 
-      - name: Check Node.js version
-        run: node --version
+      - name: Install dependencies (with cache)
+        run: |
+          yarn config set nodeLinker node-modules  # Désactive PnP si problématique
+          yarn install --immutable --check-cache
 
-      - name: Install dependencies
-        run: yarn install --immutable
+      - name: Skip Cypress install (si non nécessaire)
+        run: |
+          echo "CYPRESS_INSTALL_BINARY=0" >> .env
+          echo "SKIP_CYPRESS_INSTALL=true" >> .env
 
-      - name: Install Vercel CLI
-        run: yarn dlx vercel@latest
+      - name: Build project
+        run: yarn build
 
-      - name: Check Vercel Version
-        run: vercel --version
-
-      - name: Pull Vercel environment information
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Project Artifact
-        run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
-
-      - name: Deploy Project Artifact to Vercel
-        run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
+      - name: Deploy to Vercel
+        run: |
+          vercel pull --yes --token=${{ env.VERCEL_TOKEN }}
+          vercel deploy --prod --token=${{ env.VERCEL_TOKEN }}
