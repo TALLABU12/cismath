@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    forceSwcTransforms: true,
-  },
+  // Supprimez la partie "experimental" ou laissez vide
 };
 
 export default nextConfig;
