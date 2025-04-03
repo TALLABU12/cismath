@@ -1,4 +1,4 @@
-name: Vercel Deployment (Yarn Version Fix)
+name: Workflow for CD deployment on Vercel with GitHub Actions
 
 on:
   release:
@@ -6,56 +6,57 @@ on:
   workflow_dispatch:
 
 env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  NODE_VERSION: 20.x
-  YARN_VERSION: 4.7.0 # Doit correspondre exactement à package.json
+  NODE_VERSION: 20.x # Ajout recommandé
 
 jobs:
-  deploy:
+  Deploy:
+    name: Deploy after a release or a manual trigger to Vercel
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 30 # Nouveau: évite les jobs bloqués
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
-      # Étape cruciale: Configuration initiale de Corepack
-      - name: Initialize Corepack
-        run: |
-          # Force l'activation de Corepack
-          corepack enable --install-directory=/usr/local/bin
-          corepack prepare yarn@${{ env.YARN_VERSION }} --activate
-          corepack prepare pnpm@latest --activate  # Optionnel
-
+      # Configuration Node/Yarn améliorée
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "yarn"
-          always-auth: false
 
-      # Vérification explicite de l'environnement
-      - name: Verify Yarn Version
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install correct Yarn version
         run: |
-          echo "Node version: $(node --version)"
-          echo "Yarn version: $(yarn --version)"
-          echo "Yarn path: $(which yarn)"
-          [ "$(yarn --version)" = "${{ env.YARN_VERSION }}" ] || exit 1
+          corepack prepare yarn@4.7.0 --activate
+          yarn --version
 
       - name: Install dependencies
-        run: |
-          yarn config set --home enableTelemetry 0
-          yarn install --immutable --inline-builds
-        env:
-          YARN_ENABLE_GLOBAL_CACHE: 1
-          YARN_CACHE_FOLDER: .yarn/cache
+        run: yarn install --immutable
 
-      - name: Build project
-        run: yarn build
+      # Solution clé: Modification de l'installation Vercel CLI
+      - name: Setup Vercel CLI
+        run: |
+          yarn add vercel@latest --dev # Installation locale
+          echo "$(yarn bin)" >> $GITHUB_PATH # Ajout au PATH
+
+      - name: Verify Environment
+        run: |
+          echo "Node: $(node --version)"
+          echo "Yarn: $(yarn --version)"
+          echo "Vercel: $(vercel --version)"
+          which vercel || exit 1
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
+
+      - name: Build Project
+        run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
 
       - name: Deploy to Vercel
-        run: |
-          vercel pull --yes --token=${{ env.VERCEL_TOKEN }}
-          vercel deploy --prod --token=${{ env.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
