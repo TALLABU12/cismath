@@ -1,49 +1,59 @@
-name: Vercel CD Deployment
+name: Vercel CD Deployment (Optimized)
 
 on:
   release:
     types: [published]
-  workflow_dispatch:
+  workflow_dispatch: # Permet un déclenchement manuel
 
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  NODE_VERSION: 20.x
-  YARN_VERSION: 4.7.0
+  NODE_VERSION: 20.x # Version LTS recommandée
+  YARN_VERSION: 4.7.0 # Version stable récente
+  CYPRESS_INSTALL_BINARY: 0 # Désactive l'installation de Cypress
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30 # Augmentez si nécessaire
+    timeout-minutes: 20 # Timeout ajusté
 
     steps:
-      - name: Checkout
+      # Étape 1: Récupération du code
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Optimise le checkout
 
+      # Étape 2: Configuration de Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "yarn" # Cache automatique pour Yarn
+          cache: "yarn" # Active le cache Yarn automatique
 
+      # Étape 3: Configuration Yarn
       - name: Setup Yarn
         run: |
           corepack enable
           corepack prepare yarn@${{ env.YARN_VERSION }} --activate
+          yarn config set nodeLinker node-modules # Plus stable que PnP
+          yarn config set enableGlobalCache true
 
-      - name: Install dependencies (with cache)
-        run: |
-          yarn config set nodeLinker node-modules  # Désactive PnP si problématique
-          yarn install --immutable --check-cache
+      # Étape 4: Installation des dépendances
+      - name: Install dependencies
+        run: yarn install --immutable --inline-builds
+        env:
+          YARN_CACHE_FOLDER: .yarn/cache
 
-      - name: Skip Cypress install (si non nécessaire)
-        run: |
-          echo "CYPRESS_INSTALL_BINARY=0" >> .env
-          echo "SKIP_CYPRESS_INSTALL=true" >> .env
-
+      # Étape 5: Build du projet
       - name: Build project
         run: yarn build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1 # Désactive la télémétrie
 
+      # Étape 6: Déploiement Vercel
       - name: Deploy to Vercel
         run: |
           vercel pull --yes --token=${{ env.VERCEL_TOKEN }}
-          vercel deploy --prod --token=${{ env.VERCEL_TOKEN }}
+          vercel deploy --prod --token=${{ env.VERCEL_TOKEN }} --confirm
+        env:
+          FORCE_COLOR: 1 # Améliore la lisibilité des logs
