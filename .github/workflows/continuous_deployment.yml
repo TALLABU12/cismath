@@ -1,4 +1,4 @@
-name: Vercel CD Deployment (Fixed Yarn Version)
+name: Vercel Deployment (Yarn Version Fix)
 
 on:
   release:
@@ -8,7 +8,7 @@ on:
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
   NODE_VERSION: 20.x
-  YARN_VERSION: 4.7.0 # Doit correspondre à packageManager dans package.json
+  YARN_VERSION: 4.7.0 # Doit correspondre exactement à package.json
 
 jobs:
   deploy:
@@ -18,29 +18,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # Étape cruciale: Configuration initiale de Corepack
+      - name: Initialize Corepack
+        run: |
+          # Force l'activation de Corepack
+          corepack enable --install-directory=/usr/local/bin
+          corepack prepare yarn@${{ env.YARN_VERSION }} --activate
+          corepack prepare pnpm@latest --activate  # Optionnel
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "yarn"
+          always-auth: false
 
-      # Étape cruciale pour gérer Corepack et Yarn moderne
-      - name: Enable Corepack and Set Yarn Version
+      # Vérification explicite de l'environnement
+      - name: Verify Yarn Version
         run: |
-          # Active Corepack (inclus dans Node.js ≥16.9)
-          corepack enable
-
-          # Prépare la version exacte spécifiée dans package.json
-          corepack prepare yarn@${{ env.YARN_VERSION }} --activate
-
-          # Vérification
+          echo "Node version: $(node --version)"
           echo "Yarn version: $(yarn --version)"
+          echo "Yarn path: $(which yarn)"
+          [ "$(yarn --version)" = "${{ env.YARN_VERSION }}" ] || exit 1
 
       - name: Install dependencies
         run: |
-          # Force l'utilisation de la version configurée par Corepack
-          yarn install --immutable
+          yarn config set --home enableTelemetry 0
+          yarn install --immutable --inline-builds
+        env:
+          YARN_ENABLE_GLOBAL_CACHE: 1
+          YARN_CACHE_FOLDER: .yarn/cache
 
       - name: Build project
         run: yarn build
